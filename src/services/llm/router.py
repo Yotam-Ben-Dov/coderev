@@ -73,7 +73,7 @@ class LLMRouter:
 
         # Try primary provider
         try:
-            llm = self._get_provider(provider_name)  # type: ignore[arg-type]
+            llm = self._get_provider(provider_name)
             if llm.is_available():
                 logger.info(
                     "Using LLM provider",
