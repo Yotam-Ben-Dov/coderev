@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Literal
 
 from fastapi import APIRouter
@@ -26,7 +26,7 @@ class ReadinessStatus(BaseModel):
 async def health_check() -> HealthStatus:
     """
     Basic health check endpoint.
-    
+
     Used by load balancers and container orchestrators to verify
     the application is running.
     """
@@ -34,7 +34,7 @@ async def health_check() -> HealthStatus:
         status="healthy",
         version=settings.app_version,
         environment=settings.environment,
-        timestamp=datetime.now(timezone.utc),
+        timestamp=datetime.now(UTC),
     )
 
 
@@ -42,7 +42,7 @@ async def health_check() -> HealthStatus:
 async def readiness_check() -> ReadinessStatus:
     """
     Readiness check endpoint.
-    
+
     Verifies all dependencies are available before accepting traffic.
     TODO: Add actual dependency checks (DB, Redis, etc.)
     """
@@ -56,5 +56,5 @@ async def readiness_check() -> ReadinessStatus:
     return ReadinessStatus(
         status="ready" if all_ready else "not_ready",
         checks=checks,
-        timestamp=datetime.now(timezone.utc),
+        timestamp=datetime.now(UTC),
     )

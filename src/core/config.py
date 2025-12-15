@@ -1,11 +1,11 @@
 from functools import lru_cache
 from typing import Literal
 
-from pydantic import Field, PostgresDsn, RedisDsn, SecretStr
+from pydantic import Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
-class Settings(BaseSettings):
+class Settings(BaseSettings):  # type: ignore[misc]
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
@@ -25,14 +25,12 @@ class Settings(BaseSettings):
     api_workers: int = 1
 
     # Database
-    database_url: PostgresDsn = Field(
-        default="postgresql+asyncpg://coderev:coderev@localhost:5432/coderev"
-    )
+    database_url: str = "postgresql+asyncpg://coderev:coderev@localhost:5432/coderev"
     db_pool_size: int = 5
     db_max_overflow: int = 10
 
     # Redis
-    redis_url: RedisDsn = Field(default="redis://localhost:6379/0")
+    redis_url: str = "redis://localhost:6379/0"
 
     # GitHub
     github_token: SecretStr = Field(default=...)
@@ -51,13 +49,13 @@ class Settings(BaseSettings):
 
     # Review Settings
     max_files_per_review: int = 20
-    max_diff_size_bytes: int = 100_000  # 100KB
-    review_timeout_seconds: int = 300  # 5 minutes
+    max_diff_size_bytes: int = 100_000
+    review_timeout_seconds: int = 300
 
     @property
     def database_url_sync(self) -> str:
         """Return sync database URL for Alembic."""
-        return str(self.database_url).replace("+asyncpg", "")
+        return self.database_url.replace("+asyncpg", "")
 
 
 @lru_cache
