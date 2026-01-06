@@ -1,7 +1,9 @@
+"""FastAPI application factory for CodeRev."""
+
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
 import structlog
-from _collections_abc import AsyncGenerator
 from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -9,6 +11,7 @@ from fastapi.responses import JSONResponse
 from src.api.routes import health, reviews, webhooks
 from src.core.config import settings
 from src.core.exceptions import CodeRevError
+from src.db.session import close_db, init_db
 
 logger = structlog.get_logger()
 
@@ -21,7 +24,16 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         version=settings.app_version,
         environment=settings.environment,
     )
+    
+    # Initialize database (creates tables if they don't exist)
+    # In production, rely on Alembic migrations instead
+    if settings.environment == "development":
+        await init_db()
+    
     yield
+    
+    # Cleanup
+    await close_db()
     logger.info("Shutting down CodeRev")
 
 

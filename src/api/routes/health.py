@@ -1,15 +1,22 @@
+"""Health check endpoints."""
+
 from datetime import UTC, datetime
 from typing import Literal
 
+import structlog
 from fastapi import APIRouter
 from pydantic import BaseModel
 
 from src.core.config import settings
+from src.db.session import check_db_connection
 
 router = APIRouter()
+logger = structlog.get_logger()
 
 
 class HealthStatus(BaseModel):
+    """Basic health check response."""
+    
     status: Literal["healthy", "unhealthy"]
     version: str
     environment: str
@@ -17,6 +24,8 @@ class HealthStatus(BaseModel):
 
 
 class ReadinessStatus(BaseModel):
+    """Readiness check response with dependency status."""
+    
     status: Literal["ready", "not_ready"]
     checks: dict[str, bool]
     timestamp: datetime
@@ -44,14 +53,22 @@ async def readiness_check() -> ReadinessStatus:
     Readiness check endpoint.
 
     Verifies all dependencies are available before accepting traffic.
-    TODO: Add actual dependency checks (DB, Redis, etc.)
     """
+    # Check database connection
+    db_healthy = await check_db_connection()
+    
+    # TODO: Add Redis check when Celery is implemented
+    redis_healthy = True  # Placeholder
+    
     checks = {
-        "database": True,  # TODO: Implement actual check
-        "redis": True,  # TODO: Implement actual check
+        "database": db_healthy,
+        "redis": redis_healthy,
     }
 
     all_ready = all(checks.values())
+
+    if not all_ready:
+        logger.warning("Readiness check failed", checks=checks)
 
     return ReadinessStatus(
         status="ready" if all_ready else "not_ready",
