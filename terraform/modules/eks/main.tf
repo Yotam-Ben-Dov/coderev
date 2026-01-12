@@ -14,7 +14,7 @@ module "eks" {
       max_size       = 5
       desired_size   = 2
       instance_types = ["t3.medium"]
-      
+
       labels = {
         Environment = var.environment
       }

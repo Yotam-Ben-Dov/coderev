@@ -55,7 +55,7 @@ def create_session_factory(engine: AsyncEngine | None = None) -> async_sessionma
     """Create a session factory."""
     if engine is None:
         engine = get_engine()
-    
+
     return async_sessionmaker(
         bind=engine,
         class_=AsyncSession,
@@ -76,7 +76,7 @@ async_session_factory = create_session_factory
 async def get_async_session() -> AsyncGenerator[AsyncSession, None]:
     """
     Dependency that provides an async database session.
-    
+
     Usage in FastAPI:
         @router.get("/items")
         async def get_items(session: AsyncSession = Depends(get_async_session)):
@@ -96,7 +96,7 @@ async def get_async_session() -> AsyncGenerator[AsyncSession, None]:
 async def get_session_context() -> AsyncGenerator[AsyncSession, None]:
     """
     Context manager for getting a database session.
-    
+
     Usage:
         async with get_session_context() as session:
             # do stuff
@@ -119,40 +119,40 @@ async def get_session_context() -> AsyncGenerator[AsyncSession, None]:
 async def init_db() -> None:
     """
     Initialize the database by creating all tables.
-    
+
     Note: In production, use Alembic migrations instead.
     This is mainly for development/testing.
     """
     engine = get_engine()
-    
+
     logger.info("Initializing database", url=settings.database_url.split("@")[-1])
-    
+
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
-    
+
     logger.info("Database initialized successfully")
 
 
 async def drop_db() -> None:
     """
     Drop all database tables.
-    
+
     WARNING: This will delete all data. Only use in testing.
     """
     engine = get_engine()
-    
+
     logger.warning("Dropping all database tables")
-    
+
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)
-    
+
     logger.info("Database tables dropped")
 
 
 async def close_db() -> None:
     """Close database connections."""
     global _engine
-    
+
     if _engine is not None:
         await _engine.dispose()
         _engine = None
@@ -167,7 +167,7 @@ async def close_db() -> None:
 async def check_db_connection() -> bool:
     """
     Check if the database connection is healthy.
-    
+
     Returns:
         True if connection is healthy, False otherwise.
     """

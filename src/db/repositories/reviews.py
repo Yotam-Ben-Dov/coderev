@@ -4,7 +4,7 @@ from collections.abc import Sequence
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from sqlalchemy import select, func, and_
+from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -20,11 +20,7 @@ class ReviewRepository(BaseRepository[Review]):
 
     async def get_with_comments(self, id: int) -> Review | None:
         """Get a review with its comments loaded."""
-        query = (
-            select(Review)
-            .options(selectinload(Review.comments))
-            .where(Review.id == id)
-        )
+        query = select(Review).options(selectinload(Review.comments)).where(Review.id == id)
         result = await self.session.execute(query)
         return result.scalar_one_or_none()
 
@@ -40,10 +36,10 @@ class ReviewRepository(BaseRepository[Review]):
             Review.repository_id == repository_id,
             Review.pr_number == pr_number,
         )
-        
+
         if not include_deleted:
             query = query.where(Review.deleted_at.is_(None))
-        
+
         query = query.order_by(Review.created_at.desc())
         result = await self.session.execute(query)
         return result.scalars().all()
@@ -112,10 +108,10 @@ class ReviewRepository(BaseRepository[Review]):
             Review.repository_id == repository_id,
             Review.deleted_at.is_(None),
         )
-        
+
         if status:
             query = query.where(Review.status == status.value)
-        
+
         query = query.order_by(Review.created_at.desc()).offset(skip).limit(limit)
         result = await self.session.execute(query)
         return result.scalars().all()
@@ -194,19 +190,19 @@ class ReviewRepository(BaseRepository[Review]):
     ) -> dict[str, Any]:
         """
         Get review statistics.
-        
+
         Returns:
             Dictionary with total_reviews, total_cost, total_tokens, etc.
         """
         since = datetime.now(UTC) - timedelta(days=days)
-        
+
         conditions = [
             Review.deleted_at.is_(None),
             Review.created_at >= since,
         ]
         if repository_id:
             conditions.append(Review.repository_id == repository_id)
-        
+
         query = select(
             func.count(Review.id).label("total_reviews"),
             func.sum(Review.cost_usd).label("total_cost"),
@@ -214,10 +210,10 @@ class ReviewRepository(BaseRepository[Review]):
             func.avg(Review.latency_ms).label("avg_latency_ms"),
             func.avg(Review.cost_usd).label("avg_cost"),
         ).where(and_(*conditions))
-        
+
         result = await self.session.execute(query)
         row = result.one()
-        
+
         return {
             "total_reviews": row.total_reviews or 0,
             "total_cost_usd": float(row.total_cost or 0),
@@ -233,7 +229,7 @@ class ReviewRepository(BaseRepository[Review]):
     ) -> Sequence[dict[str, Any]]:
         """Get cost breakdown by model."""
         since = datetime.now(UTC) - timedelta(days=days)
-        
+
         query = (
             select(
                 Review.model_used,
@@ -249,7 +245,7 @@ class ReviewRepository(BaseRepository[Review]):
             .group_by(Review.model_used)
             .order_by(func.sum(Review.cost_usd).desc())
         )
-        
+
         result = await self.session.execute(query)
         return [
             {
@@ -268,7 +264,7 @@ class ReviewRepository(BaseRepository[Review]):
     ) -> dict[str, int]:
         """Get distribution of review verdicts."""
         since = datetime.now(UTC) - timedelta(days=days)
-        
+
         conditions = [
             Review.deleted_at.is_(None),
             Review.created_at >= since,
@@ -276,13 +272,13 @@ class ReviewRepository(BaseRepository[Review]):
         ]
         if repository_id:
             conditions.append(Review.repository_id == repository_id)
-        
+
         query = (
             select(Review.verdict, func.count(Review.id))
             .where(and_(*conditions))
             .group_by(Review.verdict)
         )
-        
+
         result = await self.session.execute(query)
         return {row[0]: row[1] for row in result.all()}
 
@@ -309,10 +305,7 @@ class ReviewCommentRepository(BaseRepository[ReviewComment]):
         comments: list[dict[str, Any]],
     ) -> Sequence[ReviewComment]:
         """Create multiple comments at once."""
-        instances = [
-            ReviewComment(review_id=review_id, **comment)
-            for comment in comments
-        ]
+        instances = [ReviewComment(review_id=review_id, **comment) for comment in comments]
         self.session.add_all(instances)
         await self.session.flush()
         return instances

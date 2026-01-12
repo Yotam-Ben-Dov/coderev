@@ -46,14 +46,14 @@ class RepositoryRepository(BaseRepository[Repository]):
     ) -> tuple[Repository, bool]:
         """
         Get an existing repository or create a new one.
-        
+
         Returns:
             Tuple of (repository, created) where created is True if new.
         """
         existing = await self.get_by_owner_and_name(owner, name)
         if existing:
             return existing, False
-        
+
         repo = await self.create(
             owner=owner,
             name=name,
@@ -73,10 +73,14 @@ class RepositoryRepository(BaseRepository[Repository]):
 
     async def list_by_owner(self, owner: str) -> Sequence[Repository]:
         """List all repositories for an owner."""
-        query = select(Repository).where(
-            Repository.owner == owner,
-            Repository.deleted_at.is_(None),
-        ).order_by(Repository.name)
+        query = (
+            select(Repository)
+            .where(
+                Repository.owner == owner,
+                Repository.deleted_at.is_(None),
+            )
+            .order_by(Repository.name)
+        )
         result = await self.session.execute(query)
         return result.scalars().all()
 
@@ -89,12 +93,12 @@ class RepositoryRepository(BaseRepository[Repository]):
         repo = await self.get_by_id(id)
         if repo is None:
             return None
-        
+
         # Merge settings
         current_settings = repo.settings or {}
         current_settings.update(settings)
         repo.settings = current_settings
-        
+
         await self.session.flush()
         await self.session.refresh(repo)
         return repo

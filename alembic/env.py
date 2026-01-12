@@ -3,11 +3,11 @@
 import asyncio
 from logging.config import fileConfig
 
-from alembic import context
 from sqlalchemy import pool
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
+from alembic import context
 from src.core.config import settings
 from src.db.models import Base
 
@@ -28,7 +28,7 @@ target_metadata = Base.metadata
 def run_migrations_offline() -> None:
     """
     Run migrations in 'offline' mode.
-    
+
     This generates SQL scripts without connecting to the database.
     """
     url = config.get_main_option("sqlalchemy.url")

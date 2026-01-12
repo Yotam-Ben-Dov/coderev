@@ -18,7 +18,6 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import (
     DeclarativeBase,
     Mapped,
-    MappedAsDataclass,
     mapped_column,
     relationship,
 )
@@ -130,13 +129,13 @@ class Repository(Base, TimestampMixin, SoftDeleteMixin):
     __tablename__ = "repositories"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    
+
     # GitHub identifiers
     github_id: Mapped[int | None] = mapped_column(Integer, unique=True, nullable=True)
     owner: Mapped[str] = mapped_column(String(255), nullable=False)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     full_name: Mapped[str] = mapped_column(String(512), nullable=False, unique=True)
-    
+
     # Settings (JSON for flexibility)
     settings: Mapped[dict] = mapped_column(
         JSONB,
@@ -144,7 +143,7 @@ class Repository(Base, TimestampMixin, SoftDeleteMixin):
         nullable=False,
         server_default="{}",
     )
-    
+
     # Relationships
     reviews: Mapped[list["Review"]] = relationship(
         "Review",
@@ -153,9 +152,7 @@ class Repository(Base, TimestampMixin, SoftDeleteMixin):
     )
 
     # Indexes
-    __table_args__ = (
-        Index("ix_repositories_owner_name", "owner", "name"),
-    )
+    __table_args__ = (Index("ix_repositories_owner_name", "owner", "name"),)
 
     def __repr__(self) -> str:
         return f"<Repository {self.full_name}>"
@@ -167,21 +164,21 @@ class Review(Base, TimestampMixin, SoftDeleteMixin):
     __tablename__ = "reviews"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    
+
     # Foreign keys
     repository_id: Mapped[int] = mapped_column(
         Integer,
         ForeignKey("repositories.id", ondelete="CASCADE"),
         nullable=False,
     )
-    
+
     # Pull request info
     pr_number: Mapped[int] = mapped_column(Integer, nullable=False)
     pr_title: Mapped[str] = mapped_column(String(500), nullable=False)
     pr_url: Mapped[str | None] = mapped_column(String(1000), nullable=True)
     head_sha: Mapped[str] = mapped_column(String(40), nullable=False)
     base_sha: Mapped[str | None] = mapped_column(String(40), nullable=True)
-    
+
     # Review status and results
     status: Mapped[ReviewStatus] = mapped_column(
         String(50),
@@ -190,11 +187,11 @@ class Review(Base, TimestampMixin, SoftDeleteMixin):
     )
     verdict: Mapped[str | None] = mapped_column(String(50), nullable=True)
     summary: Mapped[str | None] = mapped_column(Text, nullable=True)
-    
+
     # Files reviewed
     files_reviewed: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     total_comments: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
-    
+
     # LLM tracking
     model_used: Mapped[str | None] = mapped_column(String(100), nullable=True)
     prompt_version: Mapped[str | None] = mapped_column(String(50), nullable=True)
@@ -202,22 +199,22 @@ class Review(Base, TimestampMixin, SoftDeleteMixin):
     tokens_output: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     tokens_total: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     cost_usd: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
-    
+
     # Performance tracking
     latency_ms: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    
+
     # GitHub integration
     github_review_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    
+
     # Error tracking
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
-    
+
     # Completion timestamp
     completed_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
     )
-    
+
     # Relationships
     repository: Mapped["Repository"] = relationship(
         "Repository",
@@ -228,7 +225,7 @@ class Review(Base, TimestampMixin, SoftDeleteMixin):
         back_populates="review",
         cascade="all, delete-orphan",
     )
-    
+
     # Indexes
     __table_args__ = (
         Index("ix_reviews_repository_pr", "repository_id", "pr_number"),
@@ -252,32 +249,32 @@ class ReviewComment(Base, TimestampMixin):
     __tablename__ = "review_comments"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    
+
     # Foreign keys
     review_id: Mapped[int] = mapped_column(
         Integer,
         ForeignKey("reviews.id", ondelete="CASCADE"),
         nullable=False,
     )
-    
+
     # Comment location
     file_path: Mapped[str] = mapped_column(String(500), nullable=False)
     line_number: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    
+
     # Comment content
     body: Mapped[str] = mapped_column(Text, nullable=False)
     category: Mapped[str] = mapped_column(String(50), nullable=False)
     severity: Mapped[str] = mapped_column(String(50), nullable=False)
-    
+
     # Agent tracking (for multi-agent system)
     agent_type: Mapped[str | None] = mapped_column(String(50), nullable=True)
-    
+
     # Relationships
     review: Mapped["Review"] = relationship(
         "Review",
         back_populates="comments",
     )
-    
+
     # Indexes
     __table_args__ = (
         Index("ix_review_comments_review_id", "review_id"),
@@ -295,29 +292,29 @@ class PromptVersion(Base, TimestampMixin, SoftDeleteMixin):
     __tablename__ = "prompt_versions"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    
+
     # Version identifier
     version: Mapped[str] = mapped_column(String(50), unique=True, nullable=False)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
-    
+
     # Prompt content
     system_prompt: Mapped[str] = mapped_column(Text, nullable=False)
     user_prompt_template: Mapped[str] = mapped_column(Text, nullable=False)
-    
+
     # Targeting (which agent/use case)
     agent_type: Mapped[str | None] = mapped_column(String(50), nullable=True)
-    
+
     # A/B testing
     is_active: Mapped[bool] = mapped_column(default=False, nullable=False)
     traffic_percentage: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
-    
+
     # Performance metrics (aggregated)
     total_uses: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     avg_tokens: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
     avg_cost_usd: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
     avg_latency_ms: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
-    
+
     # Indexes
     __table_args__ = (
         Index("ix_prompt_versions_active", "is_active"),

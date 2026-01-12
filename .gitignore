@@ -97,6 +97,6 @@ Thumbs.db
 # Secrets (never commit these)
 *.pem
 *.key
-*.sha256 
+*.sha256
 # ^ not sure, but just in case
 secrets/

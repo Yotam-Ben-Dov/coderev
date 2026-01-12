@@ -2,7 +2,6 @@
 
 import time
 from dataclasses import dataclass
-from datetime import UTC, datetime
 from typing import Literal
 
 import structlog
@@ -55,24 +54,26 @@ class ReviewPipeline:
         self.github = github_client or GitHubClient()
         self.llm = llm_router or LLMRouter()
         self.diff_parser = diff_parser or DiffParser()
-        
+
         # Repositories (initialized lazily when session is available)
         self._repo_repository: RepositoryRepository | None = None
         self._review_repository: ReviewRepository | None = None
         self._comment_repository: ReviewCommentRepository | None = None
 
-    def _get_repositories(self) -> tuple[RepositoryRepository, ReviewRepository, ReviewCommentRepository]:
+    def _get_repositories(
+        self,
+    ) -> tuple[RepositoryRepository, ReviewRepository, ReviewCommentRepository]:
         """Get or create repository instances."""
         if self.session is None:
             raise ReviewError("Database session not available")
-        
+
         if self._repo_repository is None:
             self._repo_repository = RepositoryRepository(self.session)
         if self._review_repository is None:
             self._review_repository = ReviewRepository(self.session)
         if self._comment_repository is None:
             self._comment_repository = ReviewCommentRepository(self.session)
-        
+
         return self._repo_repository, self._review_repository, self._comment_repository
 
     async def execute(
@@ -98,7 +99,7 @@ class ReviewPipeline:
         """
         start_time = time.time()
         review_db_id: int | None = None
-        
+
         logger.info(
             "Starting review pipeline",
             owner=owner,
@@ -113,10 +114,10 @@ class ReviewPipeline:
         # 2. Database operations (if session available)
         if self.session is not None:
             repo_repo, review_repo, comment_repo = self._get_repositories()
-            
+
             # Get or create repository record
             db_repository, _ = await repo_repo.get_or_create(owner, repo)
-            
+
             # Check if already reviewed (skip duplicate reviews)
             if skip_if_reviewed:
                 existing = await review_repo.get_by_sha(db_repository.id, pr.head_sha)
@@ -142,7 +143,7 @@ class ReviewPipeline:
                         github_review_id=existing.github_review_id,
                         latency_ms=existing.latency_ms,
                     )
-            
+
             # Create review record
             review_record = await review_repo.create(
                 repository_id=db_repository.id,
@@ -178,7 +179,7 @@ class ReviewPipeline:
                     total_cost_usd=0.0,
                     review_posted=False,
                 )
-                
+
                 # Update database record
                 if self.session is not None and review_db_id:
                     await review_repo.mark_completed(
@@ -193,7 +194,7 @@ class ReviewPipeline:
                         cost_usd=0.0,
                         latency_ms=int((time.time() - start_time) * 1000),
                     )
-                
+
                 return result
 
             # 5. Apply limits
@@ -238,14 +239,14 @@ class ReviewPipeline:
                 # Get LLM review
                 response = await self.llm.review_code(request)
                 all_responses.append(response)
-                
+
                 # Track token usage (estimate split if not provided separately)
                 tokens_input += response.tokens_used // 2  # Rough estimate
                 tokens_output += response.tokens_used // 2
 
             # 7. Aggregate results
             aggregated = self._aggregate_responses(all_responses, pr)
-            
+
             # Calculate latency
             latency_ms = int((time.time() - start_time) * 1000)
 
@@ -269,7 +270,7 @@ class ReviewPipeline:
             # 10. Save to database
             if self.session is not None and review_db_id:
                 _, review_repo, comment_repo = self._get_repositories()
-                
+
                 # Update review record
                 await review_repo.mark_completed(
                     review_db_id,
@@ -284,7 +285,7 @@ class ReviewPipeline:
                     latency_ms=latency_ms,
                     github_review_id=github_review_id,
                 )
-                
+
                 # Save comments
                 if aggregated.comments:
                     comments_data = [
@@ -298,7 +299,7 @@ class ReviewPipeline:
                         for c in aggregated.comments
                     ]
                     await comment_repo.create_many(review_db_id, comments_data)
-                
+
                 logger.info(
                     "Saved review to database",
                     review_id=review_db_id,

@@ -1,9 +1,9 @@
 """Base repository with generic CRUD operations."""
 
-from typing import Any, Generic, TypeVar
 from collections.abc import Sequence
+from typing import Any, Generic, TypeVar
 
-from sqlalchemy import select, update, func
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.db.models import Base
@@ -15,7 +15,7 @@ ModelType = TypeVar("ModelType", bound=Base)
 class BaseRepository(Generic[ModelType]):
     """
     Base repository providing common CRUD operations.
-    
+
     Usage:
         class UserRepository(BaseRepository[User]):
             def __init__(self, session: AsyncSession):
@@ -54,11 +54,11 @@ class BaseRepository(Generic[ModelType]):
     ) -> Sequence[ModelType]:
         """Get all records with pagination."""
         query = select(self.model)
-        
+
         # Filter out soft-deleted records if the model supports it
         if not include_deleted and hasattr(self.model, "deleted_at"):
             query = query.where(self.model.deleted_at.is_(None))  # type: ignore
-        
+
         query = query.offset(skip).limit(limit)
         result = await self.session.execute(query)
         return result.scalars().all()
@@ -66,10 +66,10 @@ class BaseRepository(Generic[ModelType]):
     async def count(self, *, include_deleted: bool = False) -> int:
         """Count all records."""
         query = select(func.count()).select_from(self.model)
-        
+
         if not include_deleted and hasattr(self.model, "deleted_at"):
             query = query.where(self.model.deleted_at.is_(None))  # type: ignore
-        
+
         result = await self.session.execute(query)
         return result.scalar() or 0
 
@@ -78,11 +78,11 @@ class BaseRepository(Generic[ModelType]):
         instance = await self.get_by_id(id)
         if instance is None:
             return None
-        
+
         for key, value in kwargs.items():
             if hasattr(instance, key):
                 setattr(instance, key, value)
-        
+
         await self.session.flush()
         await self.session.refresh(instance)
         return instance
@@ -94,36 +94,36 @@ class BaseRepository(Generic[ModelType]):
     ) -> int:
         """Update multiple records matching filters."""
         query = update(self.model).values(**kwargs)
-        
+
         for key, value in filters.items():
             if hasattr(self.model, key):
                 query = query.where(getattr(self.model, key) == value)
-        
+
         result = await self.session.execute(query)
         return result.rowcount  # type: ignore
 
     async def delete(self, id: int, *, soft: bool = True) -> bool:
         """
         Delete a record by ID.
-        
+
         Args:
             id: Record ID
             soft: If True and model supports it, soft delete. Otherwise hard delete.
-        
+
         Returns:
             True if record was deleted, False if not found.
         """
         instance = await self.get_by_id(id)
         if instance is None:
             return False
-        
+
         if soft and hasattr(instance, "soft_delete"):
             instance.soft_delete()  # type: ignore
             await self.session.flush()
         else:
             await self.session.delete(instance)
             await self.session.flush()
-        
+
         return True
 
     async def restore(self, id: int) -> ModelType | None:
@@ -131,12 +131,12 @@ class BaseRepository(Generic[ModelType]):
         instance = await self.get_by_id(id)
         if instance is None:
             return None
-        
+
         if hasattr(instance, "restore"):
             instance.restore()  # type: ignore
             await self.session.flush()
             await self.session.refresh(instance)
-        
+
         return instance
 
     async def exists(self, id: int) -> bool:

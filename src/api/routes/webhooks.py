@@ -18,24 +18,24 @@ logger = structlog.get_logger()
 def verify_github_signature(payload: bytes, signature: str | None) -> bool:
     """
     Verify GitHub webhook signature.
-    
+
     Args:
         payload: Raw request body
         signature: X-Hub-Signature-256 header value
-    
+
     Returns:
         True if signature is valid or webhook secret is not configured
     """
     # If no webhook secret configured, skip verification (development mode)
     if not hasattr(settings, "github_webhook_secret") or not settings.github_webhook_secret:
         return True
-    
+
     if not signature:
         return False
-    
+
     secret = settings.github_webhook_secret.get_secret_value().encode()
     expected = "sha256=" + hmac.new(secret, payload, hashlib.sha256).hexdigest()
-    
+
     return hmac.compare_digest(expected, signature)
 
 
@@ -53,12 +53,12 @@ async def github_webhook(
     - pull_request.opened
     - pull_request.synchronize
     - pull_request.reopened
-    
+
     Events are queued to Celery for async processing.
     """
     # Get raw body for signature verification
     body = await request.body()
-    
+
     # Verify signature (if configured)
     if not verify_github_signature(body, x_hub_signature_256):
         logger.warning("Invalid webhook signature", delivery_id=x_github_delivery)
@@ -66,7 +66,7 @@ async def github_webhook(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid signature",
         )
-    
+
     payload: dict[str, Any] = await request.json()
 
     logger.info(
@@ -85,7 +85,7 @@ async def github_webhook(
 
     if x_github_event == "pull_request":
         action = payload.get("action")
-        
+
         # Only process on open, sync, or reopen
         if action in ("opened", "synchronize", "reopened"):
             pr_number = payload.get("number")

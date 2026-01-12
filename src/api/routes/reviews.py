@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.dependencies import get_db
 from src.db.repositories import ReviewRepository
-from src.services.review.pipeline import PipelineResult, ReviewPipeline
+from src.services.review.pipeline import ReviewPipeline
 from src.worker.celery_app import celery_app
 from src.worker.tasks.review_tasks import process_review
 
@@ -114,16 +114,16 @@ async def trigger_review(
             pr_number=request.pr_number,
             post_review=request.post_review,
         )
-        
+
         return ReviewResponse(
             task_id=task.id,
             pr_number=request.pr_number,
             status="queued",
         )
-    
+
     # Synchronous processing
     pipeline = ReviewPipeline(session=db)
-    
+
     try:
         result = await pipeline.execute(
             owner=request.owner,
@@ -161,7 +161,7 @@ async def trigger_review(
 async def get_task_status(task_id: str) -> TaskStatusResponse:
     """
     Get the status of an async review task.
-    
+
     Possible statuses:
     - PENDING: Task is waiting to be processed
     - STARTED: Task has started processing
@@ -170,17 +170,17 @@ async def get_task_status(task_id: str) -> TaskStatusResponse:
     - RETRY: Task is being retried
     """
     task_result = AsyncResult(task_id, app=celery_app)
-    
+
     response = TaskStatusResponse(
         task_id=task_id,
         status=task_result.status,
     )
-    
+
     if task_result.successful():
         response.result = task_result.result
     elif task_result.failed():
         response.error = str(task_result.result)
-    
+
     return response
 
 
@@ -192,13 +192,13 @@ async def get_review(
     """Get a review by ID."""
     repo = ReviewRepository(db)
     review = await repo.get_by_id(review_id)
-    
+
     if review is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Review {review_id} not found",
         )
-    
+
     return ReviewResponse(
         review_id=review.id,
         pr_number=review.pr_number,
@@ -224,5 +224,5 @@ async def get_review_stats(
     """Get review statistics."""
     repo = ReviewRepository(db)
     stats = await repo.get_stats(days=days)
-    
+
     return ReviewStatsResponse(**stats)

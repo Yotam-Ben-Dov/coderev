@@ -15,9 +15,9 @@ logger = structlog.get_logger()
 
 class AsyncTask(Task):
     """Base task class that handles async execution."""
-    
+
     abstract = True
-    
+
     def run_async(self, coro):
         """Run an async coroutine in the task."""
         loop = asyncio.new_event_loop()
@@ -47,14 +47,14 @@ def process_review(
 ) -> dict[str, Any]:
     """
     Process a code review asynchronously.
-    
+
     Args:
         owner: Repository owner
         repo: Repository name
         pr_number: Pull request number
         post_review: Whether to post review to GitHub
         skip_if_reviewed: Skip if already reviewed at this SHA
-    
+
     Returns:
         Dictionary with review results
     """
@@ -65,7 +65,7 @@ def process_review(
         repo=repo,
         pr_number=pr_number,
     )
-    
+
     async def _execute() -> dict[str, Any]:
         async with get_session_context() as session:
             pipeline = ReviewPipeline(session=session)
@@ -77,7 +77,7 @@ def process_review(
                     post_review=post_review,
                     skip_if_reviewed=skip_if_reviewed,
                 )
-                
+
                 return {
                     "status": "completed",
                     "review_id": result.review_id,
@@ -95,7 +95,7 @@ def process_review(
                 }
             finally:
                 await pipeline.close()
-    
+
     try:
         result = self.run_async(_execute())
         logger.info(
