@@ -6,6 +6,9 @@ __pycache__/
 # C extensions
 *.so
 
+# Executables (Windows)
+*.exe
+
 # Distribution / packaging
 .Python
 build/
@@ -94,4 +97,6 @@ Thumbs.db
 # Secrets (never commit these)
 *.pem
 *.key
+*.sha256 
+# ^ not sure, but just in case
 secrets/

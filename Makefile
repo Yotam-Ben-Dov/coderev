@@ -1,4 +1,4 @@
-.PHONY: help install dev lint format test run docker-up docker-down clean
+.PHONY: help install dev lint format test run docker-up docker-down clean db-upgrade db-downgrade db-migrate db-reset
 
 help:  ## Show this help message
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
@@ -39,6 +39,23 @@ docker-logs:  ## View logs from all services
 docker-build:  ## Build Docker images
 	docker-compose build
 
+# Database commands
+db-upgrade:  ## Run database migrations
+	poetry run alembic upgrade head
+
+db-downgrade:  ## Rollback last migration
+	poetry run alembic downgrade -1
+
+db-migrate:  ## Create a new migration (usage: make db-migrate msg="description")
+	poetry run alembic revision --autogenerate -m "$(msg)"
+
+db-reset:  ## Reset database (drop all tables and re-run migrations)
+	poetry run alembic downgrade base
+	poetry run alembic upgrade head
+
+db-history:  ## Show migration history
+	poetry run alembic history
+
 clean:  ## Remove cache and build artifacts
 	find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
 	find . -type d -name ".pytest_cache" -exec rm -rf {} + 2>/dev/null || true
@@ -46,3 +63,13 @@ clean:  ## Remove cache and build artifacts
 	find . -type d -name ".ruff_cache" -exec rm -rf {} + 2>/dev/null || true
 	find . -type d -name "*.egg-info" -exec rm -rf {} + 2>/dev/null || true
 	rm -rf build dist htmlcov .coverage
+
+# Celery commands
+worker:  ## Run Celery worker locally
+	poetry run celery -A src.worker.celery_app worker --loglevel=info --queues=default,reviews
+
+worker-beat:  ## Run Celery beat scheduler
+	poetry run celery -A src.worker.celery_app beat --loglevel=info
+
+flower:  ## Run Flower (Celery monitoring) - install with: pip install flower
+	poetry run celery -A src.worker.celery_app flower --port=5555

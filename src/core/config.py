@@ -35,6 +35,7 @@ class Settings(BaseSettings):  # type: ignore[misc]
     # GitHub
     github_token: SecretStr = Field(default=...)
     github_api_url: str = "https://api.github.com"
+    github_webhook_secret: SecretStr | None = None
 
     # LLM Providers
     anthropic_api_key: SecretStr | None = None
