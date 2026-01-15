@@ -15,9 +15,9 @@ class Settings(BaseSettings):  # type: ignore[misc]
 
     # Application
     app_name: str = "coderev"
-    app_version: str = "0.1.0"
+    app_version: str = "0.1.1"
     debug: bool = False
-    environment: Literal["development", "staging", "production"] = "development"
+    environment: Literal["development", "staging", "production", "test"] = "development"
 
     # API Server
     api_host: str = "0.0.0.0"

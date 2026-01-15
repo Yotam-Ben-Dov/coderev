@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "coderev"
-version = "0.1.1"
+version = "0.1.2"
 description = "AI-powered code review assistant"
 authors = ["Yotam Ben Dov <Yotam.Bendov985@gmail.com>"]
 readme = "README.md"
@@ -35,6 +35,8 @@ openai = "^1.30.0"
 # Utilities
 structlog = "^24.2.0"
 python-dotenv = "^1.0.0"
+prometheus-client = "^0.24.1"
+
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.2.0"
@@ -77,6 +79,7 @@ strict = true
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]
+pythonpath = ["."]
 asyncio_mode = "auto"
 testpaths = ["tests"]
-addopts = "-v --cov=src --cov-report=term-missing"
+addopts = "-v --tb=short --cov=src --cov-report=term-missing" 

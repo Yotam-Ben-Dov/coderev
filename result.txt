@@ -1,0 +1,106 @@
+poetry run pytest
+============================= test session starts ==============================
+platform linux -- Python 3.12.3, pytest-8.4.2, pluggy-1.6.0 -- /mnt/e/Projects/coderev/.venv/bin/python
+cachedir: .pytest_cache
+rootdir: /mnt/e/Projects/coderev
+configfile: pyproject.toml
+testpaths: tests
+plugins: anyio-4.12.1, asyncio-0.23.8, cov-5.0.0
+asyncio: mode=Mode.AUTO
+collecting ... collected 43 items
+
+tests/unit/test_diff_parser.py::TestDiffParser::test_parse_simple_modification PASSED [  2%]
+tests/unit/test_diff_parser.py::TestDiffParser::test_parse_new_file PASSED [  4%]
+tests/unit/test_diff_parser.py::TestDiffParser::test_parse_deleted_file PASSED [  6%]
+tests/unit/test_diff_parser.py::TestDiffParser::test_parse_multiple_files PASSED [  9%]
+tests/unit/test_diff_parser.py::TestDiffParser::test_parse_multiple_hunks PASSED [ 11%]
+tests/unit/test_diff_parser.py::TestDiffParser::test_filter_python_files PASSED [ 13%]
+tests/unit/test_diff_parser.py::TestDiffParser::test_get_changed_line_numbers PASSED [ 16%]
+tests/unit/test_diff_parser.py::TestDiffParser::test_empty_diff PASSED   [ 18%]
+tests/unit/test_diff_parser.py::TestDiffParser::test_additions_and_deletions_count PASSED [ 20%]
+tests/unit/test_formatter.py::TestFormatter::test_format_comment_body_bug_critical PASSED [ 23%]
+tests/unit/test_formatter.py::TestFormatter::test_format_comment_body_suggestion_info PASSED [ 25%]
+tests/unit/test_formatter.py::TestFormatter::test_format_summary PASSED  [ 27%]
+tests/unit/test_formatter.py::TestFormatter::test_llm_response_to_github_review_approve PASSED [ 30%]
+tests/unit/test_formatter.py::TestFormatter::test_llm_response_to_github_review_request_changes PASSED [ 32%]
+tests/unit/test_github_client.py::TestGitHubClient::test_get_pull_request PASSED [ 34%]
+tests/unit/test_github_client.py::TestGitHubClient::test_get_pull_request_not_found PASSED [ 37%]
+tests/unit/test_github_client.py::TestGitHubClient::test_get_pull_request_files PASSED [ 39%]
+tests/unit/test_github_client.py::TestGitHubClient::test_create_review PASSED [ 41%]
+tests/unit/test_github_client.py::TestGitHubClient::test_authentication_error PASSED [ 44%]
+tests/unit/test_health.py::test_health_check PASSED                      [ 46%]
+tests/unit/test_health.py::test_readiness_check PASSED                   [ 48%]
+tests/unit/test_llm.py::TestAnthropicProvider::test_parse_valid_response PASSED [ 51%]
+tests/unit/test_llm.py::TestAnthropicProvider::test_parse_response_without_code_block PASSED [ 53%]
+tests/unit/test_llm.py::TestAnthropicProvider::test_parse_response_invalid_verdict_defaults_to_comment PASSED [ 55%]
+tests/unit/test_llm.py::TestAnthropicProvider::test_parse_response_malformed_comment_skipped PASSED [ 58%]
+tests/unit/test_llm.py::TestAnthropicProvider::test_estimate_cost PASSED [ 60%]
+tests/unit/test_llm.py::TestLLMRouter::test_routes_to_default_provider PASSED [ 62%]
+tests/unit/test_llm.py::TestLLMRouter::test_get_available_providers PASSED [ 65%]
+tests/unit/test_pipeline.py::TestReviewPipeline::test_execute_success PASSED [ 67%]
+tests/unit/test_pipeline.py::TestReviewPipeline::test_execute_no_python_files PASSED [ 69%]
+tests/unit/test_pipeline.py::TestReviewPipeline::test_execute_without_posting PASSED [ 72%]
+tests/unit/test_repositories.py::TestRepositoryRepository::test_create_repository PASSED [ 74%]
+tests/unit/test_repositories.py::TestRepositoryRepository::test_get_or_create_existing PASSED [ 76%]
+tests/unit/test_repositories.py::TestRepositoryRepository::test_get_by_full_name PASSED [ 79%]
+tests/unit/test_repositories.py::TestRepositoryRepository::test_soft_delete PASSED [ 81%]
+tests/unit/test_repositories.py::TestReviewRepository::test_create_review PASSED [ 83%]
+tests/unit/test_repositories.py::TestReviewRepository::test_mark_completed PASSED [ 86%]
+tests/unit/test_repositories.py::TestReviewRepository::test_get_by_sha PASSED [ 88%]
+tests/unit/test_repositories.py::TestReviewRepository::test_exists_for_sha PASSED [ 90%]
+tests/unit/test_repositories.py::TestReviewRepository::test_get_stats PASSED [ 93%]
+tests/unit/test_repositories.py::TestReviewCommentRepository::test_create_many PASSED [ 95%]
+tests/unit/test_repositories.py::TestReviewCommentRepository::test_get_by_review PASSED [ 97%]
+tests/unit/test_repositories.py::TestReviewCommentRepository::test_count_by_severity PASSED [100%]
+
+=============================== warnings summary ===============================
+.venv/lib/python3.12/site-packages/starlette/formparsers.py:12
+  /mnt/e/Projects/coderev/.venv/lib/python3.12/site-packages/starlette/formparsers.py:12: PendingDeprecationWarning: Please use `import python_multipart` instead.
+    import multipart
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+
+---------- coverage: platform linux, python 3.12.3-final-0 -----------
+Name                                  Stmts   Miss  Cover   Missing
+-------------------------------------------------------------------
+src/__init__.py                           2      0   100%
+src/api/__init__.py                       0      0   100%
+src/api/dependencies.py                   6      2    67%   19-20
+src/api/main.py                          35     10    71%   22-37, 63-64, 71-72
+src/api/routes/__init__.py                0      0   100%
+src/api/routes/health.py                 30      1    97%   71
+src/api/routes/reviews.py                81     27    67%   101-143, 172-184, 193-202, 225-228
+src/api/routes/webhooks.py               43     28    35%   30-39, 60-125, 134
+src/core/__init__.py                      3      0   100%
+src/core/config.py                       37      1    97%   59
+src/core/exceptions.py                   32      2    94%   29-30
+src/db/__init__.py                        4      0   100%
+src/db/models.py                        119      7    94%   69, 77, 158, 240, 243, 286, 325
+src/db/repositories/__init__.py           4      0   100%
+src/db/repositories/base.py              76     36    53%   43-46, 56-64, 68-74, 80, 96-103, 118, 124-125, 131-140, 144-146
+src/db/repositories/repositories.py      40     15    62%   67-72, 76-85, 93-104
+src/db/repositories/reviews.py          101     43    57%   23-25, 35-45, 53-64, 107-117, 121-131, 135, 175, 231-250, 266-283, 319-324, 332-337, 355-360
+src/db/session.py                        65     37    43%   56-59, 85-92, 104-111, 126-133, 142-149, 156-159, 177, 179-181
+src/prompts/__init__.py                   2      0   100%
+src/prompts/review.py                    27     25     7%   66-97
+src/services/__init__.py                  0      0   100%
+src/services/github/__init__.py           3      0   100%
+src/services/github/client.py            77     40    48%   33-43, 47-49, 58-90, 97, 131, 157-166, 176-186, 219, 239-248
+src/services/github/models.py            78      6    92%   102, 106, 110-113
+src/services/llm/__init__.py              3      0   100%
+src/services/llm/anthropic.py            67     24    64%   38, 46-55, 58, 71-111, 132-138
+src/services/llm/base.py                 56      5    91%   64, 70, 75, 80, 85
+src/services/llm/ollama.py               70     48    31%   32, 36, 40-46, 50, 54-103, 119-163
+src/services/llm/router.py               59     23    61%   35-39, 50-51, 84-117
+src/services/review/__init__.py           4      0   100%
+src/services/review/diff_parser.py      126      3    98%   149, 206-208
+src/services/review/formatter.py         21      0   100%
+src/services/review/pipeline.py         147     51    65%   67-77, 116-158, 185, 202-207, 222-228, 266-268, 272-303, 325-330, 339, 360, 362, 370-380, 396
+src/worker/__init__.py                    2      0   100%
+src/worker/celery_app.py                  5      0   100%
+src/worker/tasks/__init__.py              2      0   100%
+src/worker/tasks/review_tasks.py         53     34    36%   26-31, 46-61, 95-157, 163
+-------------------------------------------------------------------
+TOTAL                                  1480    468    68%
+
+======================== 43 passed, 1 warning in 2.66s =========================
