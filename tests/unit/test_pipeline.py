@@ -110,6 +110,7 @@ class TestReviewPipeline:
         assert result.verdict == "approve"
         assert result.review_posted is True
         assert result.github_review_id == 123
+        assert result.review_id is None
 
         mock_github_client.create_review.assert_called_once()
 
@@ -144,6 +145,7 @@ class TestReviewPipeline:
 
         assert result.files_reviewed == 0
         assert result.review_posted is False
+        assert result.review_id is None
         mock_llm_router.review_code.assert_not_called()
 
     @pytest.mark.asyncio
@@ -175,4 +177,5 @@ class TestReviewPipeline:
 
         assert result.review_posted is False
         assert result.github_review_id is None
+        assert result.review_id is None
         mock_github_client.create_review.assert_not_called()

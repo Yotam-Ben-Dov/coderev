@@ -1,0 +1,142 @@
+# .github/workflows/self-review.yml
+name: Self Review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - 'src/**'
+      - 'tests/**'
+
+# Prevent concurrent reviews on the same PR
+concurrency:
+  group: self-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  self-review:
+    name: CodeRev Reviews Itself
+    runs-on: ubuntu-latest
+    
+    # Only run if we have the API key
+    if: ${{ secrets.ANTHROPIC_API_KEY != '' }}
+    
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Poetry
+        uses: snok/install-poetry@v1
+        with:
+          version: "1.8.0"
+          virtualenvs-create: true
+          virtualenvs-in-project: true
+
+      - name: Load cached venv
+        id: cached-poetry-dependencies
+        uses: actions/cache@v4
+        with:
+          path: .venv
+          key: venv-${{ runner.os }}-3.11-${{ hashFiles('**/poetry.lock') }}
+
+      - name: Install dependencies
+        if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
+        run: poetry install --no-interaction --no-root
+
+      - name: Install project
+        run: poetry install --no-interaction
+
+      - name: Run migrations
+        env:
+          DATABASE_URL: postgresql+asyncpg://test:test@localhost:5432/test
+        run: poetry run alembic upgrade head
+
+      - name: Run CodeRev on this PR
+        env:
+          DATABASE_URL: postgresql+asyncpg://test:test@localhost:5432/test
+          REDIS_URL: redis://localhost:6379/0
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          ENVIRONMENT: test
+        run: |
+          poetry run python -c "
+          import asyncio
+          from src.db.session import get_session_context
+          from src.services.review.pipeline import ReviewPipeline
+
+          async def main():
+              async with get_session_context() as session:
+                  pipeline = ReviewPipeline(session=session)
+                  try:
+                      result = await pipeline.execute(
+                          owner='${{ github.repository_owner }}',
+                          repo='${{ github.event.repository.name }}',
+                          pr_number=${{ github.event.pull_request.number }},
+                          post_review=True,
+                          skip_if_reviewed=False,
+                      )
+                      print(f'Review completed: {result.verdict}')
+                      print(f'Files reviewed: {result.files_reviewed}')
+                      print(f'Comments: {result.total_comments}')
+                      print(f'Cost: \${result.total_cost_usd:.4f}')
+                  finally:
+                      await pipeline.close()
+
+          asyncio.run(main())
+          "
+
+      - name: Post summary comment
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const body = `## 🤖 CodeRev Self-Review Complete
+            
+            This PR was automatically reviewed by CodeRev.
+            
+            Check the review comments above for feedback.
+            
+            ---
+            <sub>🔄 This review was triggered by commit ${{ github.event.pull_request.head.sha }}</sub>
+            `;
+            
+            // Check if we already posted a summary
+            const comments = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+            
+            const existingComment = comments.data.find(c => 
+              c.body.includes('CodeRev Self-Review Complete') && 
+              c.user.type === 'Bot'
+            );
+            
+            if (!existingComment) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: body
+              });
+            }
