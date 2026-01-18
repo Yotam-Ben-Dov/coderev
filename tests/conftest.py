@@ -10,7 +10,6 @@ from fastapi.testclient import TestClient
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
     AsyncSession,
-    async_sessionmaker,
     create_async_engine,
 )
 
@@ -30,7 +29,6 @@ os.environ.setdefault(
 
 from src.api.main import app  # noqa: E402
 from src.db.models import Base  # noqa: E402
-
 
 # =============================================================================
 # Pytest-Asyncio Configuration
@@ -57,7 +55,7 @@ def test_db_url() -> str:
 def test_engine_sync(test_db_url: str) -> AsyncEngine:
     """
     Create a test database engine.
-    
+
     This is a sync fixture that returns the engine object.
     Using sync fixture avoids pytest-asyncio async generator cleanup issues.
     """

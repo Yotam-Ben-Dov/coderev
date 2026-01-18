@@ -7,7 +7,6 @@ from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 # Set test environment variables BEFORE importing app
@@ -23,7 +22,6 @@ os.environ.setdefault("DATABASE_URL", "postgresql+asyncpg://coderev:coderev@loca
 
 from src.api.main import app  # noqa: E402
 from src.db.models import Base  # noqa: E402
-
 
 # =============================================================================
 # Event Loop Fixture
@@ -47,8 +45,7 @@ def event_loop() -> Generator[asyncio.AbstractEventLoop, None, None]:
 def test_db_url() -> str:
     """Get the test database URL."""
     return os.environ.get(
-        "DATABASE_URL",
-        "postgresql+asyncpg://coderev:coderev@localhost:5432/coderev"
+        "DATABASE_URL", "postgresql+asyncpg://coderev:coderev@localhost:5432/coderev"
     )
 
 
@@ -60,13 +57,13 @@ async def test_engine(test_db_url: str) -> AsyncGenerator[Any, None]:
         echo=False,
         pool_pre_ping=True,
     )
-    
+
     # Ensure tables exist (don't drop/recreate to preserve dev data)
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
-    
+
     yield engine
-    
+
     # Don't drop tables - we're sharing with dev database
     await engine.dispose()
 
@@ -80,7 +77,7 @@ async def db_session(test_engine: Any) -> AsyncGenerator[AsyncSession, None]:
         expire_on_commit=False,
         autoflush=False,
     )
-    
+
     async with session_factory() as session:
         # Start a transaction that will be rolled back
         await session.begin()

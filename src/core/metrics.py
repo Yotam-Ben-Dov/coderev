@@ -92,7 +92,11 @@ LLM_COMPLETION_TOKENS = Histogram(
 REVIEWS_TOTAL = Counter(
     "coderev_reviews_total",
     "Total number of code reviews processed",
-    ["repository", "status", "verdict"],  # status: completed, failed; verdict: approve, request_changes, comment
+    [
+        "repository",
+        "status",
+        "verdict",
+    ],  # status: completed, failed; verdict: approve, request_changes, comment
 )
 
 REVIEWS_IN_PROGRESS = Gauge(
@@ -199,10 +203,12 @@ CELERY_QUEUE_LENGTH = Gauge(
 
 def initialize_app_info(version: str, environment: str) -> None:
     """Initialize application info metric."""
-    APP_INFO.info({
-        "version": version,
-        "environment": environment,
-    })
+    APP_INFO.info(
+        {
+            "version": version,
+            "environment": environment,
+        }
+    )
 
 
 def record_llm_request(
@@ -216,7 +222,7 @@ def record_llm_request(
 ) -> None:
     """
     Record metrics for an LLM API request.
-    
+
     Args:
         provider: LLM provider name (anthropic, openai, ollama)
         model: Model identifier
@@ -231,36 +237,36 @@ def record_llm_request(
         model=model,
         status=status,
     ).inc()
-    
+
     LLM_REQUEST_DURATION_SECONDS.labels(
         provider=provider,
         model=model,
     ).observe(duration_seconds)
-    
+
     if tokens_input > 0:
         LLM_TOKENS_TOTAL.labels(
             provider=provider,
             model=model,
             direction="input",
         ).inc(tokens_input)
-        
+
         LLM_PROMPT_TOKENS.labels(
             provider=provider,
             model=model,
         ).observe(tokens_input)
-    
+
     if tokens_output > 0:
         LLM_TOKENS_TOTAL.labels(
             provider=provider,
             model=model,
             direction="output",
         ).inc(tokens_output)
-        
+
         LLM_COMPLETION_TOKENS.labels(
             provider=provider,
             model=model,
         ).observe(tokens_output)
-    
+
     if cost_usd > 0:
         LLM_COST_USD_TOTAL.labels(
             provider=provider,
@@ -278,7 +284,7 @@ def record_review_completed(
 ) -> None:
     """
     Record metrics for a completed review.
-    
+
     Args:
         repository: Repository full name (owner/repo)
         status: Review status (completed, failed)
@@ -292,13 +298,13 @@ def record_review_completed(
         status=status,
         verdict=verdict,
     ).inc()
-    
+
     REVIEW_DURATION_SECONDS.labels(
         repository=repository,
     ).observe(duration_seconds)
-    
+
     REVIEW_FILES_ANALYZED.observe(files_analyzed)
-    
+
     for severity, count in comments_by_severity.items():
         REVIEW_COMMENTS_GENERATED.labels(
             severity=severity,
@@ -315,7 +321,7 @@ def record_github_api_call(
 ) -> None:
     """
     Record metrics for a GitHub API call.
-    
+
     Args:
         endpoint: API endpoint (e.g., "pulls", "reviews")
         method: HTTP method
@@ -329,16 +335,17 @@ def record_github_api_call(
         method=method,
         status_code=str(status_code),
     ).inc()
-    
+
     GITHUB_API_DURATION_SECONDS.labels(
         endpoint=endpoint,
         method=method,
     ).observe(duration_seconds)
-    
+
     if rate_limit_remaining is not None:
         GITHUB_RATE_LIMIT_REMAINING.set(rate_limit_remaining)
-    
+
     if rate_limit_reset is not None:
         import time
+
         reset_in_seconds = max(0, rate_limit_reset - int(time.time()))
         GITHUB_RATE_LIMIT_RESET_SECONDS.set(reset_in_seconds)

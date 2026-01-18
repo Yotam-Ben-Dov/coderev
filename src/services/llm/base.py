@@ -1,3 +1,5 @@
+"""Base classes for LLM providers."""
+
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from enum import Enum
@@ -52,6 +54,9 @@ class ReviewResponse:
     tokens_used: int = 0
     model: str = ""
     cost_usd: float = 0.0
+    tokens_input: int = 0
+    tokens_output: int = 0
+    latency_ms: int = 0
 
 
 class LLMProvider(ABC):

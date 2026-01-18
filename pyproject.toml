@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "coderev"
-version = "0.1.2"
+version = "0.1.3"
 description = "AI-powered code review assistant"
 authors = ["Yotam Ben Dov <Yotam.Bendov985@gmail.com>"]
 readme = "README.md"

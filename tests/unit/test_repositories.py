@@ -4,7 +4,7 @@ import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.db.models import ReviewStatus
-from src.db.repositories import RepositoryRepository, ReviewRepository, ReviewCommentRepository
+from src.db.repositories import RepositoryRepository, ReviewCommentRepository, ReviewRepository
 
 
 class TestRepositoryRepository:
@@ -14,13 +14,13 @@ class TestRepositoryRepository:
     async def test_create_repository(self, db_session: AsyncSession) -> None:
         """Test creating a repository."""
         repo = RepositoryRepository(db_session)
-        
+
         result = await repo.create(
             owner="testowner",
             name="testrepo",
             full_name="testowner/testrepo",
         )
-        
+
         assert result.id is not None
         assert result.owner == "testowner"
         assert result.name == "testrepo"
@@ -30,11 +30,11 @@ class TestRepositoryRepository:
     async def test_get_or_create_existing(self, db_session: AsyncSession) -> None:
         """Test get_or_create returns existing repository."""
         repo = RepositoryRepository(db_session)
-        
+
         # Create first
         created, was_created = await repo.get_or_create("owner1", "repo1")
         assert was_created is True
-        
+
         # Get existing
         existing, was_created = await repo.get_or_create("owner1", "repo1")
         assert was_created is False
@@ -44,13 +44,13 @@ class TestRepositoryRepository:
     async def test_get_by_full_name(self, db_session: AsyncSession) -> None:
         """Test getting repository by full name."""
         repo = RepositoryRepository(db_session)
-        
+
         await repo.create(
             owner="myowner",
             name="myrepo",
             full_name="myowner/myrepo",
         )
-        
+
         result = await repo.get_by_full_name("myowner/myrepo")
         assert result is not None
         assert result.full_name == "myowner/myrepo"
@@ -59,17 +59,17 @@ class TestRepositoryRepository:
     async def test_soft_delete(self, db_session: AsyncSession) -> None:
         """Test soft delete functionality."""
         repo = RepositoryRepository(db_session)
-        
+
         created = await repo.create(
             owner="deletetest",
             name="repo",
             full_name="deletetest/repo",
         )
-        
+
         # Soft delete
         deleted = await repo.delete(created.id, soft=True)
         assert deleted is True
-        
+
         # Should not be found in normal queries
         result = await repo.get_by_full_name("deletetest/repo")
         assert result is None
@@ -88,7 +88,7 @@ class TestReviewRepository:
             name="repo",
             full_name="test/repo",
         )
-        
+
         review_repo = ReviewRepository(db_session)
         review = await review_repo.create(
             repository_id=repository.id,
@@ -97,7 +97,7 @@ class TestReviewRepository:
             head_sha="abc123",
             status=ReviewStatus.PENDING.value,
         )
-        
+
         assert review.id is not None
         assert review.pr_number == 42
         assert review.status == ReviewStatus.PENDING.value
@@ -111,7 +111,7 @@ class TestReviewRepository:
             name="repo2",
             full_name="test2/repo2",
         )
-        
+
         review_repo = ReviewRepository(db_session)
         review = await review_repo.create(
             repository_id=repository.id,
@@ -120,7 +120,7 @@ class TestReviewRepository:
             head_sha="def456",
             status=ReviewStatus.PENDING.value,
         )
-        
+
         updated = await review_repo.mark_completed(
             review.id,
             verdict="approve",
@@ -133,7 +133,7 @@ class TestReviewRepository:
             cost_usd=0.01,
             latency_ms=1500,
         )
-        
+
         assert updated is not None
         assert updated.status == ReviewStatus.COMPLETED.value
         assert updated.verdict == "approve"
@@ -148,7 +148,7 @@ class TestReviewRepository:
             name="repo3",
             full_name="test3/repo3",
         )
-        
+
         review_repo = ReviewRepository(db_session)
         await review_repo.create(
             repository_id=repository.id,
@@ -157,7 +157,7 @@ class TestReviewRepository:
             head_sha="unique_sha_123",
             status=ReviewStatus.COMPLETED.value,
         )
-        
+
         result = await review_repo.get_by_sha(repository.id, "unique_sha_123")
         assert result is not None
         assert result.head_sha == "unique_sha_123"
@@ -171,7 +171,7 @@ class TestReviewRepository:
             name="repo4",
             full_name="test4/repo4",
         )
-        
+
         review_repo = ReviewRepository(db_session)
         await review_repo.create(
             repository_id=repository.id,
@@ -180,10 +180,10 @@ class TestReviewRepository:
             head_sha="exists_sha_456",
             status=ReviewStatus.COMPLETED.value,
         )
-        
+
         exists = await review_repo.exists_for_sha(repository.id, "exists_sha_456")
         assert exists is True
-        
+
         not_exists = await review_repo.exists_for_sha(repository.id, "nonexistent_sha")
         assert not_exists is False
 
@@ -196,9 +196,9 @@ class TestReviewRepository:
             name="repo",
             full_name="stats/repo",
         )
-        
+
         review_repo = ReviewRepository(db_session)
-        
+
         # Create some reviews
         for i in range(3):
             review = await review_repo.create(
@@ -220,9 +220,9 @@ class TestReviewRepository:
                 cost_usd=0.01,
                 latency_ms=1000,
             )
-        
+
         stats = await review_repo.get_stats(repository_id=repository.id, days=30)
-        
+
         assert stats["total_reviews"] == 3
         assert stats["total_cost_usd"] == pytest.approx(0.03, rel=0.01)
 
@@ -239,7 +239,7 @@ class TestReviewCommentRepository:
             name="repo",
             full_name="comments/repo",
         )
-        
+
         review_repo = ReviewRepository(db_session)
         review = await review_repo.create(
             repository_id=repository.id,
@@ -248,7 +248,7 @@ class TestReviewCommentRepository:
             head_sha="comment_sha",
             status=ReviewStatus.COMPLETED.value,
         )
-        
+
         comment_repo = ReviewCommentRepository(db_session)
         comments = await comment_repo.create_many(
             review.id,
@@ -269,7 +269,7 @@ class TestReviewCommentRepository:
                 },
             ],
         )
-        
+
         assert len(comments) == 2
         assert comments[0].body == "First comment"
         assert comments[1].body == "Second comment"
@@ -283,7 +283,7 @@ class TestReviewCommentRepository:
             name="repo",
             full_name="getcomments/repo",
         )
-        
+
         review_repo = ReviewRepository(db_session)
         review = await review_repo.create(
             repository_id=repository.id,
@@ -292,7 +292,7 @@ class TestReviewCommentRepository:
             head_sha="get_comment_sha",
             status=ReviewStatus.COMPLETED.value,
         )
-        
+
         comment_repo = ReviewCommentRepository(db_session)
         await comment_repo.create_many(
             review.id,
@@ -313,7 +313,7 @@ class TestReviewCommentRepository:
                 },
             ],
         )
-        
+
         comments = await comment_repo.get_by_review(review.id)
         assert len(comments) == 2
 
@@ -326,7 +326,7 @@ class TestReviewCommentRepository:
             name="repo",
             full_name="severity/repo",
         )
-        
+
         review_repo = ReviewRepository(db_session)
         review = await review_repo.create(
             repository_id=repository.id,
@@ -335,18 +335,36 @@ class TestReviewCommentRepository:
             head_sha="severity_sha",
             status=ReviewStatus.COMPLETED.value,
         )
-        
+
         comment_repo = ReviewCommentRepository(db_session)
         await comment_repo.create_many(
             review.id,
             [
-                {"file_path": "f.py", "line_number": 1, "body": "c1", "category": "bug", "severity": "critical"},
-                {"file_path": "f.py", "line_number": 2, "body": "c2", "category": "bug", "severity": "critical"},
-                {"file_path": "f.py", "line_number": 3, "body": "c3", "category": "style", "severity": "info"},
+                {
+                    "file_path": "f.py",
+                    "line_number": 1,
+                    "body": "c1",
+                    "category": "bug",
+                    "severity": "critical",
+                },
+                {
+                    "file_path": "f.py",
+                    "line_number": 2,
+                    "body": "c2",
+                    "category": "bug",
+                    "severity": "critical",
+                },
+                {
+                    "file_path": "f.py",
+                    "line_number": 3,
+                    "body": "c3",
+                    "category": "style",
+                    "severity": "info",
+                },
             ],
         )
-        
+
         counts = await comment_repo.count_by_severity(review.id)
-        
+
         assert counts.get("critical") == 2
         assert counts.get("info") == 1

@@ -16,7 +16,7 @@ logger = structlog.get_logger()
 
 class HealthStatus(BaseModel):
     """Basic health check response."""
-    
+
     status: Literal["healthy", "unhealthy"]
     version: str
     environment: str
@@ -25,7 +25,7 @@ class HealthStatus(BaseModel):
 
 class ReadinessStatus(BaseModel):
     """Readiness check response with dependency status."""
-    
+
     status: Literal["ready", "not_ready"]
     checks: dict[str, bool]
     timestamp: datetime
@@ -56,10 +56,10 @@ async def readiness_check() -> ReadinessStatus:
     """
     # Check database connection
     db_healthy = await check_db_connection()
-    
+
     # TODO: Add Redis check when Celery is implemented
     redis_healthy = True  # Placeholder
-    
+
     checks = {
         "database": db_healthy,
         "redis": redis_healthy,

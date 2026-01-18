@@ -7,9 +7,9 @@ import structlog
 from celery import Task
 from sqlalchemy import NullPool
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
-from src.core.exceptions import GitHubNotFoundError, GitHubAuthenticationError
-from src.core.config import settings
 
+from src.core.config import settings
+from src.core.exceptions import GitHubAuthenticationError, GitHubNotFoundError
 from src.services.review.pipeline import ReviewPipeline
 from src.worker.celery_app import celery_app
 
@@ -19,7 +19,7 @@ logger = structlog.get_logger()
 def get_worker_session_factory() -> async_sessionmaker[AsyncSession]:
     """
     Create a session factory for Celery workers.
-    
+
     Uses NullPool to avoid connection pooling issues with event loops.
     Each task gets a fresh connection that's properly closed.
     """
@@ -38,9 +38,9 @@ def get_worker_session_factory() -> async_sessionmaker[AsyncSession]:
 
 class AsyncTask(Task):
     """Base task class that handles async execution properly."""
-    
+
     abstract = True
-    
+
     def run_async(self, coro: Any) -> Any:
         """Run an async coroutine in the task."""
         loop = asyncio.new_event_loop()
@@ -52,11 +52,11 @@ class AsyncTask(Task):
             pending = asyncio.all_tasks(loop)
             for task in pending:
                 task.cancel()
-            
+
             # Allow cancelled tasks to complete
             if pending:
                 loop.run_until_complete(asyncio.gather(*pending, return_exceptions=True))
-            
+
             loop.run_until_complete(loop.shutdown_asyncgens())
             loop.close()
 
@@ -81,14 +81,14 @@ def process_review(
 ) -> dict[str, Any]:
     """
     Process a code review asynchronously.
-    
+
     Args:
         owner: Repository owner
         repo: Repository name
         pr_number: Pull request number
         post_review: Whether to post review to GitHub
         skip_if_reviewed: Skip if already reviewed at this SHA
-    
+
     Returns:
         Dictionary with review results
     """
@@ -99,11 +99,11 @@ def process_review(
         repo=repo,
         pr_number=pr_number,
     )
-    
+
     async def _execute() -> dict[str, Any]:
         # Create fresh session factory for this task
         session_factory = get_worker_session_factory()
-        
+
         async with session_factory() as session:
             pipeline = ReviewPipeline(session=session)
             try:
@@ -114,10 +114,10 @@ def process_review(
                     post_review=post_review,
                     skip_if_reviewed=skip_if_reviewed,
                 )
-                
+
                 # Commit the session
                 await session.commit()
-                
+
                 return {
                     "status": "completed",
                     "review_id": result.review_id,
@@ -133,12 +133,12 @@ def process_review(
                     "github_review_id": result.github_review_id,
                     "latency_ms": result.latency_ms,
                 }
-            except Exception as e:
+            except Exception:
                 await session.rollback()
                 raise
             finally:
                 await pipeline.close()
-    
+
     try:
         result = self.run_async(_execute())
         logger.info(

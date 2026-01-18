@@ -8,9 +8,12 @@ from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
+from src.api.middleware.metrics import MetricsMiddleware
 from src.api.routes import health, reviews, webhooks
+from src.api.routes.metrics import router as metrics_router
 from src.core.config import settings
 from src.core.exceptions import CodeRevError
+from src.core.metrics import initialize_app_info
 from src.db.session import close_db, init_db
 
 logger = structlog.get_logger()
@@ -24,14 +27,20 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         version=settings.app_version,
         environment=settings.environment,
     )
-    
+
+    # Initialize Prometheus app info metric
+    initialize_app_info(
+        version=settings.app_version,
+        environment=settings.environment,
+    )
+
     # Initialize database (creates tables if they don't exist)
     # In production, rely on Alembic migrations instead
     if settings.environment == "development":
         await init_db()
-    
+
     yield
-    
+
     # Cleanup
     await close_db()
     logger.info("Shutting down CodeRev")
@@ -48,7 +57,7 @@ def create_app() -> FastAPI:
         redoc_url="/redoc" if settings.debug else None,
     )
 
-    # Middleware
+    # Middleware - order matters (first added = outermost)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=["*"] if settings.debug else [],
@@ -56,6 +65,9 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+    # Metrics middleware
+    app.add_middleware(MetricsMiddleware)
 
     # Exception handlers
     @app.exception_handler(CodeRevError)
@@ -78,6 +90,7 @@ def create_app() -> FastAPI:
     app.include_router(health.router, tags=["Health"])
     app.include_router(webhooks.router, prefix="/webhooks", tags=["Webhooks"])
     app.include_router(reviews.router, prefix="/reviews", tags=["Reviews"])
+    app.include_router(metrics_router, tags=["Metrics"])
 
     return app
 

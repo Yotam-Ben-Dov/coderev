@@ -24,7 +24,7 @@ from src.core.metrics import (
 class MetricsMiddleware(BaseHTTPMiddleware):
     """
     Middleware that collects Prometheus metrics for all HTTP requests.
-    
+
     Metrics collected:
     - coderev_http_requests_total: Counter of total requests
     - coderev_http_request_duration_seconds: Histogram of request durations
@@ -41,23 +41,23 @@ class MetricsMiddleware(BaseHTTPMiddleware):
     ) -> Response:
         """Process request and record metrics."""
         path = request.url.path
-        
+
         # Skip metrics for excluded paths
         if path in self.EXCLUDE_PATHS:
             return await call_next(request)
-        
+
         # Get the matched route pattern (e.g., /reviews/{review_id} instead of /reviews/123)
         endpoint = self._get_path_template(request)
         method = request.method
-        
+
         # Track in-progress requests
         HTTP_REQUESTS_IN_PROGRESS.labels(
             method=method,
             endpoint=endpoint,
         ).inc()
-        
+
         start_time = time.perf_counter()
-        
+
         try:
             response = await call_next(request)
             status_code = response.status_code
@@ -67,31 +67,31 @@ class MetricsMiddleware(BaseHTTPMiddleware):
         finally:
             # Record duration
             duration = time.perf_counter() - start_time
-            
+
             HTTP_REQUEST_DURATION_SECONDS.labels(
                 method=method,
                 endpoint=endpoint,
             ).observe(duration)
-            
+
             # Record request count
             HTTP_REQUESTS_TOTAL.labels(
                 method=method,
                 endpoint=endpoint,
                 status_code=str(status_code),
             ).inc()
-            
+
             # Decrement in-progress gauge
             HTTP_REQUESTS_IN_PROGRESS.labels(
                 method=method,
                 endpoint=endpoint,
             ).dec()
-        
+
         return response
 
     def _get_path_template(self, request: Request) -> str:
         """
         Get the path template instead of the actual path.
-        
+
         This converts /reviews/123 to /reviews/{review_id} for better
         metric aggregation.
         """
@@ -100,6 +100,6 @@ class MetricsMiddleware(BaseHTTPMiddleware):
             match, _ = route.matches(request.scope)
             if match == Match.FULL:
                 return route.path
-        
+
         # Fallback to the actual path if no route matched
         return request.url.path

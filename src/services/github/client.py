@@ -1,3 +1,6 @@
+"""GitHub API client with metrics instrumentation."""
+
+import time
 from typing import Any
 
 import httpx
@@ -10,6 +13,7 @@ from src.core.exceptions import (
     GitHubNotFoundError,
     GitHubRateLimitError,
 )
+from src.core.metrics import record_github_api_call
 from src.services.github.models import (
     FileStatus,
     PullRequest,
@@ -48,6 +52,27 @@ class GitHubClient:
             await self._client.aclose()
             self._client = None
 
+    def _extract_endpoint_name(self, endpoint: str) -> str:
+        """
+        Extract a normalized endpoint name for metrics.
+
+        Converts:
+            /repos/owner/repo/pulls/123 -> pulls
+            /repos/owner/repo/pulls/123/files -> pulls_files
+            /repos/owner/repo/pulls/123/reviews -> pulls_reviews
+        """
+        parts = endpoint.strip("/").split("/")
+
+        # Skip 'repos', owner, repo parts
+        if len(parts) >= 3 and parts[0] == "repos":
+            parts = parts[3:]  # Remove repos/owner/repo
+
+        # Filter out numeric parts (IDs)
+        parts = [p for p in parts if not p.isdigit()]
+
+        # Join remaining parts with underscore
+        return "_".join(parts) if parts else "unknown"
+
     async def _request(
         self,
         method: str,
@@ -56,38 +81,62 @@ class GitHubClient:
     ) -> dict[str, Any] | list[Any] | str:
         """Make an authenticated request to GitHub API."""
         client = await self._get_client()
+        endpoint_name = self._extract_endpoint_name(endpoint)
 
         logger.debug("GitHub API request", method=method, endpoint=endpoint)
 
-        response = await client.request(method, endpoint, **kwargs)
+        start_time = time.perf_counter()
+        status_code = 0
+        rate_limit_remaining = None
+        rate_limit_reset = None
 
-        if response.status_code == 401:
-            raise GitHubAuthenticationError("Invalid GitHub token")
+        try:
+            response = await client.request(method, endpoint, **kwargs)
+            status_code = response.status_code
 
-        if response.status_code == 403:
-            if "rate limit" in response.text.lower():
-                reset_at = int(response.headers.get("X-RateLimit-Reset", 0))
-                raise GitHubRateLimitError(reset_at=reset_at)
-            raise GitHubAuthenticationError("Access forbidden")
+            # Extract rate limit headers
+            rate_limit_remaining = int(response.headers.get("X-RateLimit-Remaining", 0))
+            rate_limit_reset = int(response.headers.get("X-RateLimit-Reset", 0))
 
-        if response.status_code == 404:
-            raise GitHubNotFoundError(f"Resource not found: {endpoint}")
+            if response.status_code == 401:
+                raise GitHubAuthenticationError("Invalid GitHub token")
 
-        if response.status_code >= 400:
-            raise GitHubError(
-                f"GitHub API error: {response.status_code}",
-                details={"response": response.text},
+            if response.status_code == 403:
+                if "rate limit" in response.text.lower():
+                    reset_at = int(response.headers.get("X-RateLimit-Reset", 0))
+                    raise GitHubRateLimitError(reset_at=reset_at)
+                raise GitHubAuthenticationError("Access forbidden")
+
+            if response.status_code == 404:
+                raise GitHubNotFoundError(f"Resource not found: {endpoint}")
+
+            if response.status_code >= 400:
+                raise GitHubError(
+                    f"GitHub API error: {response.status_code}",
+                    details={"response": response.text},
+                )
+
+            # Handle diff responses (plain text)
+            headers = kwargs.get("headers", {})
+            if isinstance(headers, dict) and "application/vnd.github.v3.diff" in headers.get(
+                "Accept", ""
+            ):
+                return response.text
+
+            result: dict[str, Any] | list[Any] = response.json()
+            return result
+
+        finally:
+            # Always record metrics
+            duration_seconds = time.perf_counter() - start_time
+            record_github_api_call(
+                endpoint=endpoint_name,
+                method=method,
+                status_code=status_code,
+                duration_seconds=duration_seconds,
+                rate_limit_remaining=rate_limit_remaining,
+                rate_limit_reset=rate_limit_reset,
             )
-
-        # Handle diff responses (plain text)
-        headers = kwargs.get("headers", {})
-        if isinstance(headers, dict) and "application/vnd.github.v3.diff" in headers.get(
-            "Accept", ""
-        ):
-            return response.text
-
-        result: dict[str, Any] | list[Any] = response.json()
-        return result
 
     async def get_pull_request(self, owner: str, repo: str, pr_number: int) -> PullRequest:
         """Fetch pull request details."""

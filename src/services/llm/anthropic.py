@@ -1,11 +1,15 @@
+"""Anthropic Claude provider for code review."""
+
 import json
 import re
+import time
 from typing import Any
 
 import structlog
 
 from src.core.config import settings
 from src.core.exceptions import LLMError, LLMProviderUnavailableError, LLMResponseParseError
+from src.core.metrics import record_llm_request
 from src.prompts.review import REVIEW_SYSTEM_PROMPT, build_review_prompt
 from src.services.llm.base import (
     CommentCategory,
@@ -85,6 +89,11 @@ class AnthropicProvider(LLMProvider):
             file=request.file_path,
         )
 
+        start_time = time.perf_counter()
+        status = "success"
+        input_tokens = 0
+        output_tokens = 0
+
         try:
             # Note: Using sync client in async context for simplicity
             # For production, consider using anthropic's async client
@@ -94,28 +103,68 @@ class AnthropicProvider(LLMProvider):
                 system=REVIEW_SYSTEM_PROMPT,
                 messages=[{"role": "user", "content": user_prompt}],
             )
+
+            # Extract response text
+            response_text = message.content[0].text
+
+            # Parse tokens
+            input_tokens = message.usage.input_tokens
+            output_tokens = message.usage.output_tokens
+
+            # Calculate timing
+            duration_seconds = time.perf_counter() - start_time
+            latency_ms = int(duration_seconds * 1000)
+
+            # Parse the JSON response
+            parsed = self._parse_response(response_text, request.file_path)
+
+            cost_usd = self.estimate_cost(input_tokens, output_tokens)
+
+            logger.info(
+                "Received review response from Anthropic",
+                model=self._model,
+                file=request.file_path,
+                tokens_input=input_tokens,
+                tokens_output=output_tokens,
+                cost_usd=f"${cost_usd:.4f}",
+                latency_ms=latency_ms,
+                verdict=parsed["verdict"],
+                comments_count=len(parsed["comments"]),
+            )
+
+            return ReviewResponse(
+                summary=parsed["summary"],
+                verdict=parsed["verdict"],
+                comments=parsed["comments"],
+                tokens_used=input_tokens + output_tokens,
+                model=self._model,
+                cost_usd=cost_usd,
+                tokens_input=input_tokens,
+                tokens_output=output_tokens,
+                latency_ms=latency_ms,
+            )
+
+        except LLMResponseParseError:
+            status = "error"
+            raise
         except Exception as e:
+            status = "error"
             logger.error("Anthropic API error", error=str(e))
             raise LLMError(f"Anthropic API error: {e}") from e
-
-        # Extract response text
-        response_text = message.content[0].text
-
-        # Parse tokens
-        input_tokens = message.usage.input_tokens
-        output_tokens = message.usage.output_tokens
-
-        # Parse the JSON response
-        parsed = self._parse_response(response_text, request.file_path)
-
-        return ReviewResponse(
-            summary=parsed["summary"],
-            verdict=parsed["verdict"],
-            comments=parsed["comments"],
-            tokens_used=input_tokens + output_tokens,
-            model=self._model,
-            cost_usd=self.estimate_cost(input_tokens, output_tokens),
-        )
+        finally:
+            # Always record metrics
+            duration_seconds = time.perf_counter() - start_time
+            record_llm_request(
+                provider=self.name,
+                model=self._model,
+                status=status,
+                duration_seconds=duration_seconds,
+                tokens_input=input_tokens,
+                tokens_output=output_tokens,
+                cost_usd=self.estimate_cost(input_tokens, output_tokens)
+                if input_tokens > 0
+                else 0.0,
+            )
 
     def _parse_response(
         self,

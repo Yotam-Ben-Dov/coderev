@@ -1,5 +1,8 @@
+"""Ollama provider for local LLM inference."""
+
 import json
 import re
+import time
 from typing import Any
 
 import httpx
@@ -7,6 +10,7 @@ import structlog
 
 from src.core.config import settings
 from src.core.exceptions import LLMError, LLMProviderUnavailableError
+from src.core.metrics import record_llm_request
 from src.prompts.review import REVIEW_SYSTEM_PROMPT, build_review_prompt
 from src.services.llm.base import (
     CommentCategory,
@@ -72,6 +76,11 @@ class OllamaProvider(LLMProvider):
             file=request.file_path,
         )
 
+        start_time = time.perf_counter()
+        status = "success"
+        tokens_input = 0
+        tokens_output = 0
+
         try:
             async with httpx.AsyncClient(timeout=120.0) as client:
                 response = await client.post(
@@ -88,26 +97,70 @@ class OllamaProvider(LLMProvider):
                 )
                 response.raise_for_status()
                 data = response.json()
+
+            response_text = data.get("response", "")
+
+            # Ollama provides token counts in some versions
+            tokens_input = data.get("prompt_eval_count", 0)
+            tokens_output = data.get("eval_count", 0)
+
+            # Fallback: estimate based on response length if not provided
+            if tokens_input == 0:
+                tokens_input = len(full_prompt.split())
+            if tokens_output == 0:
+                tokens_output = len(response_text.split())
+
+            estimated_tokens = tokens_input + tokens_output
+
+            # Calculate timing
+            duration_seconds = time.perf_counter() - start_time
+            latency_ms = int(duration_seconds * 1000)
+
+            parsed = self._parse_response(response_text, request.file_path)
+
+            logger.info(
+                "Received review response from Ollama",
+                model=self._model,
+                file=request.file_path,
+                tokens_input=tokens_input,
+                tokens_output=tokens_output,
+                latency_ms=latency_ms,
+                verdict=parsed["verdict"],
+                comments_count=len(parsed["comments"]),
+            )
+
+            return ReviewResponse(
+                summary=parsed["summary"],
+                verdict=parsed["verdict"],
+                comments=parsed["comments"],
+                tokens_used=estimated_tokens,
+                model=self._model,
+                cost_usd=0.0,
+                tokens_input=tokens_input,
+                tokens_output=tokens_output,
+                latency_ms=latency_ms,
+            )
+
         except httpx.HTTPError as e:
+            status = "error"
             logger.error("Ollama API error", error=str(e))
             raise LLMError(f"Ollama API error: {e}") from e
-
-        response_text = data.get("response", "")
-
-        # Ollama doesn't always provide token counts
-        # Estimate based on response length
-        estimated_tokens = len(full_prompt.split()) + len(response_text.split())
-
-        parsed = self._parse_response(response_text, request.file_path)
-
-        return ReviewResponse(
-            summary=parsed["summary"],
-            verdict=parsed["verdict"],
-            comments=parsed["comments"],
-            tokens_used=estimated_tokens,
-            model=self._model,
-            cost_usd=0.0,
-        )
+        except Exception as e:
+            status = "error"
+            logger.error("Ollama error", error=str(e))
+            raise
+        finally:
+            # Always record metrics
+            duration_seconds = time.perf_counter() - start_time
+            record_llm_request(
+                provider=self.name,
+                model=self._model,
+                status=status,
+                duration_seconds=duration_seconds,
+                tokens_input=tokens_input,
+                tokens_output=tokens_output,
+                cost_usd=0.0,
+            )
 
     def _parse_response(
         self,

@@ -15,7 +15,7 @@ router = APIRouter(tags=["metrics"])
 async def metrics() -> Response:
     """
     Expose Prometheus metrics.
-    
+
     This endpoint returns all registered metrics in the Prometheus
     text exposition format.
     """
