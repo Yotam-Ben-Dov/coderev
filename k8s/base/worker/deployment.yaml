@@ -1,0 +1,115 @@
+# Celery Worker Deployment
+# Processes async review tasks from the queue
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: coderev-worker
+  namespace: coderev
+  labels:
+    app.kubernetes.io/component: worker
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: coderev
+      app.kubernetes.io/component: worker
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: coderev
+        app.kubernetes.io/component: worker
+    spec:
+      serviceAccountName: coderev-worker
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+
+      containers:
+        - name: worker
+          image: coderev-worker:latest
+          imagePullPolicy: IfNotPresent
+
+          command:
+            - celery
+            - -A
+            - src.worker.celery_app
+            - worker
+            - --loglevel=info
+            - --queues=default,reviews
+            - --concurrency=2
+
+          envFrom:
+            - configMapRef:
+                name: coderev-config
+            - secretRef:
+                name: coderev-secrets
+
+          resources:
+            requests:
+              cpu: "200m"
+              memory: "512Mi"
+            limits:
+              cpu: "1000m"
+              memory: "1Gi"
+
+          # Liveness probe using celery inspect
+          livenessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - celery -A src.worker.celery_app inspect ping -d celery@$HOSTNAME
+            initialDelaySeconds: 30
+            periodSeconds: 60
+            timeoutSeconds: 30
+            failureThreshold: 3
+
+          # Readiness probe
+          readinessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - celery -A src.worker.celery_app inspect ping -d celery@$HOSTNAME
+            initialDelaySeconds: 10
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 3
+
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+
+      volumes:
+        - name: tmp
+          emptyDir: {}
+
+      # Spread pods across nodes
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: coderev
+              app.kubernetes.io/component: worker
+
+      # Graceful shutdown - let workers finish current tasks
+      terminationGracePeriodSeconds: 300
+
+---
+# ServiceAccount for Worker pods
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: coderev-worker
+  namespace: coderev

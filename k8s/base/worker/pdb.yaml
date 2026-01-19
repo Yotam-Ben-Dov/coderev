@@ -1,0 +1,34 @@
+# Pod Disruption Budget for Workers
+# Ensures minimum availability during voluntary disruptions
+# (node maintenance, cluster upgrades, etc.)
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: coderev-worker
+  namespace: coderev
+  labels:
+    app.kubernetes.io/component: worker
+spec:
+  # Ensure at least 1 worker is always available
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: coderev
+      app.kubernetes.io/component: worker
+
+---
+# PDB for API as well
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: coderev-api
+  namespace: coderev
+  labels:
+    app.kubernetes.io/component: api
+spec:
+  # Ensure at least 1 API pod is always available
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: coderev
+      app.kubernetes.io/component: api

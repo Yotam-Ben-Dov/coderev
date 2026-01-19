@@ -1,0 +1,9 @@
+# Namespace for CodeRev application
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: coderev
+  labels:
+    app.kubernetes.io/name: coderev
+    # Enable Prometheus scraping for the namespace
+    prometheus.io/scrape: "true"

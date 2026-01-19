@@ -1,0 +1,38 @@
+# Application configuration (non-sensitive values)
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: coderev-config
+  namespace: coderev
+data:
+  # Application settings
+  APP_NAME: "coderev"
+  ENVIRONMENT: "development"
+  DEBUG: "false"
+
+  # API settings
+  API_HOST: "0.0.0.0"
+  API_PORT: "8000"
+  API_WORKERS: "1"
+
+  # Database settings (connection string in secrets)
+  DB_POOL_SIZE: "5"
+  DB_MAX_OVERFLOW: "10"
+
+  # LLM settings
+  DEFAULT_LLM_PROVIDER: "anthropic"
+  DEFAULT_MODEL_ANTHROPIC: "claude-sonnet-4-20250514"
+  DEFAULT_MODEL_OLLAMA: "deepseek-coder:6.7b"
+  OLLAMA_HOST: "http://ollama:11434"
+
+  # Review settings
+  MAX_FILES_PER_REVIEW: "20"
+  MAX_DIFF_SIZE_BYTES: "100000"
+  REVIEW_TIMEOUT_SECONDS: "300"
+
+  # GitHub settings
+  GITHUB_API_URL: "https://api.github.com"
+
+  # Celery settings
+  CELERY_BROKER_URL: "redis://redis:6379/0"
+  CELERY_RESULT_BACKEND: "redis://redis:6379/0"
