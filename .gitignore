@@ -100,3 +100,6 @@ Thumbs.db
 *.sha256
 # ^ not sure, but just in case
 secrets/
+
+# Kubernetes secrets
+k8s/overlays/*/secrets.env

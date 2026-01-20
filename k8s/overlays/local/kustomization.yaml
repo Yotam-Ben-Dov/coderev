@@ -1,0 +1,46 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: coderev
+
+resources:
+  - ../../base
+  - ingress.yaml
+  - redis.yaml
+  - postgres.yaml
+
+images:
+  - name: coderev-api
+    newName: coderev-api
+    newTag: local
+  - name: coderev-worker
+    newName: coderev-worker
+    newTag: local
+
+patches:
+  - path: patches/api-resources.yaml
+  - path: patches/worker-resources.yaml
+  - path: patches/replicas.yaml
+  - target:
+      kind: ConfigMap
+      name: coderev-config
+    patch: |-
+      - op: replace
+        path: /data/ENVIRONMENT
+        value: "development"
+      - op: replace
+        path: /data/DEBUG
+        value: "true"
+      - op: add
+        path: /data/OLLAMA_HOST
+        value: "http://host.docker.internal:11434"
+
+# Generate secrets from env file (no behavior: replace needed)
+secretGenerator:
+  - name: coderev-secrets
+    envs:
+      - secrets.env
+
+# Disable hash suffix for secrets (so deployments can reference by name)
+generatorOptions:
+  disableNameSuffixHash: true

@@ -1,0 +1,28 @@
+# Reduce replicas for local development
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: coderev-api
+  namespace: coderev
+spec:
+  replicas: 1
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: coderev-worker
+  namespace: coderev
+spec:
+  replicas: 1
+
+---
+# Disable HPA for local (optional - can keep it enabled)
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: coderev-api
+  namespace: coderev
+spec:
+  minReplicas: 1
+  maxReplicas: 2

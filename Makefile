@@ -148,3 +148,39 @@ ci-test:
 	poetry run pytest --tb=short -q
 
 ci-all: ci-lint ci-test
+
+# =============================================================================
+# Kubernetes (Local Development)
+# =============================================================================
+
+k8s-setup:
+	@echo "Setting up Kind cluster..."
+	./k8s/scripts/setup-kind.sh
+	./k8s/scripts/setup-ingress.sh
+
+k8s-build:
+	@echo "Building and loading images into Kind..."
+	./k8s/scripts/load-images.sh
+
+k8s-deploy-local:
+	@echo "Deploying to local Kind cluster..."
+	./k8s/scripts/deploy-local.sh local
+
+k8s-status:
+	@echo "Cluster status:"
+	kubectl get all -n coderev
+
+k8s-logs-api:
+	kubectl logs -f -n coderev -l app.kubernetes.io/component=api
+
+k8s-logs-worker:
+	kubectl logs -f -n coderev -l app.kubernetes.io/component=worker
+
+k8s-shell-api:
+	kubectl exec -it -n coderev deployment/coderev-api -- /bin/sh
+
+k8s-teardown:
+	./k8s/scripts/teardown.sh
+
+k8s-delete-cluster:
+	DELETE_CLUSTER=true ./k8s/scripts/teardown.sh

@@ -1,0 +1,27 @@
+# Reduce worker resources for local development
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: coderev-worker
+  namespace: coderev
+spec:
+  template:
+    spec:
+      containers:
+        - name: worker
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "256Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+          # Reduce concurrency for local
+          command:
+            - celery
+            - -A
+            - src.worker.celery_app
+            - worker
+            - --loglevel=info
+            - --queues=default,reviews
+            - --concurrency=1
